@@ -227,8 +227,7 @@ private fun HomeScreen(
 
         Spacer(Modifier.height(28.dp))
         Text(
-            text = "Let’s draw
-something lovely.",
+            text = "Let’s draw\nsomething lovely.",
             fontSize = 34.sp,
             lineHeight = 39.sp,
             fontWeight = FontWeight.Bold,
