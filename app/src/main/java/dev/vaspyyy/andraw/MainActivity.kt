@@ -435,6 +435,7 @@ private fun TraceScreen(
     var isTorchOn by remember { mutableStateOf(false) }
     var isLocked by remember(imageUri) { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
+    var paperMode by remember { mutableStateOf(false) }
     var showGuides by remember(imageUri) {
         mutableStateOf(alignmentPreferences.getBoolean(referenceKey + "_guides", true))
     }
@@ -483,10 +484,10 @@ private fun TraceScreen(
             }
         }
     }
-    LaunchedEffect(screenBrightness, activity) {
+    LaunchedEffect(screenBrightness, paperMode, activity) {
         if (activity != null) {
             val params = activity.window.attributes
-            params.screenBrightness = screenBrightness.coerceIn(0.25f, 1f)
+            params.screenBrightness = if (paperMode) 1f else screenBrightness.coerceIn(0.25f, 1f)
             activity.window.attributes = params
         }
     }
@@ -534,18 +535,23 @@ private fun TraceScreen(
         }
     }
 
+    BackHandler(enabled = paperMode) {
+        paperMode = false
+        showControls = true
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF211E27))
+            .background(if (paperMode) Color.White else Color(0xFF211E27))
     ) {
-        if (hasCameraPermission) {
+        if (!paperMode && hasCameraPermission) {
             CameraPreview(
                 lifecycleOwner = lifecycleOwner,
                 onCameraReady = { camera = it; cameraError = null },
                 onError = { cameraError = it }
             )
-        } else {
+        } else if (!paperMode) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0xFF211E27)),
                 contentAlignment = Alignment.Center
@@ -614,12 +620,12 @@ private fun TraceScreen(
                         translationX = imageOffset.x
                         translationY = imageOffset.y
                         rotationZ = rotation
-                        alpha = opacity
+                        alpha = if (paperMode) 1f else opacity
                     }
             )
         }
 
-        if (showGuides) AlignmentGuides()
+        if (showGuides && !paperMode) AlignmentGuides()
 
         if (isLoading) {
             Surface(
@@ -666,7 +672,26 @@ private fun TraceScreen(
             }
         }
 
-        if (showControls) {
+        if (paperMode) {
+            Surface(
+                color = Color(0xEEFFF8FC),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Tracing paper mode", color = Color(0xFF40313E), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalButton(onClick = { paperMode = false; showControls = true }) {
+                        Text("Exit")
+                    }
+                }
+            }
+        }
+
+        if (showControls && !paperMode) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -693,6 +718,17 @@ private fun TraceScreen(
                             color = Color(0xFF766673),
                             fontSize = 11.sp
                         )
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            paperMode = true
+                            showControls = false
+                            isLocked = true
+                            screenBrightness = 1f
+                        },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                    ) {
+                        Text("Paper", fontSize = 12.sp)
                     }
                     FilledTonalIconButton(
                         onClick = { isLocked = !isLocked },
