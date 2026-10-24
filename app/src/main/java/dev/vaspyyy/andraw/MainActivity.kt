@@ -399,6 +399,12 @@ private fun TraceScreen(
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
+    val alignmentPreferences = remember(context) {
+        context.getSharedPreferences("andraw_preferences", Context.MODE_PRIVATE)
+    }
+    val referenceKey = remember(imageUri) {
+        "reference_" + imageUri.toString().hashCode().toString()
+    }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -418,16 +424,37 @@ private fun TraceScreen(
     var camera by remember { mutableStateOf<Camera?>(null) }
     var cameraError by remember { mutableStateOf<String?>(null) }
     var isTorchOn by remember { mutableStateOf(false) }
-    var isLocked by remember { mutableStateOf(false) }
+    var isLocked by remember(imageUri) { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
-    var showGuides by remember { mutableStateOf(true) }
-    var inkOnly by remember { mutableStateOf(false) }
-    var grayscale by remember { mutableStateOf(false) }
-    var opacity by remember { mutableStateOf(0.48f) }
-    var screenBrightness by remember { mutableStateOf(0.90f) }
-    var scale by remember { mutableStateOf(1f) }
-    var rotation by remember { mutableStateOf(0f) }
-    var imageOffset by remember { mutableStateOf(Offset.Zero) }
+    var showGuides by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getBoolean(referenceKey + "_guides", true))
+    }
+    var inkOnly by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getBoolean(referenceKey + "_ink_only", false))
+    }
+    var grayscale by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getBoolean(referenceKey + "_grayscale", false))
+    }
+    var opacity by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getFloat(referenceKey + "_opacity", 0.48f))
+    }
+    var screenBrightness by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getFloat(referenceKey + "_brightness", 0.90f))
+    }
+    var scale by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getFloat(referenceKey + "_scale", 1f))
+    }
+    var rotation by remember(imageUri) {
+        mutableStateOf(alignmentPreferences.getFloat(referenceKey + "_rotation", 0f))
+    }
+    var imageOffset by remember(imageUri) {
+        mutableStateOf(
+            Offset(
+                alignmentPreferences.getFloat(referenceKey + "_offset_x", 0f),
+                alignmentPreferences.getFloat(referenceKey + "_offset_y", 0f)
+            )
+        )
+    }
     var isLoading by remember(imageUri, inkOnly) { mutableStateOf(true) }
     var loadError by remember(imageUri, inkOnly) { mutableStateOf<String?>(null) }
     var referenceBitmap by remember(imageUri, inkOnly) { mutableStateOf<ImageBitmap?>(null) }
@@ -454,6 +481,23 @@ private fun TraceScreen(
             activity.window.attributes = params
         }
     }
+    LaunchedEffect(
+        imageUri, showGuides, inkOnly, grayscale, opacity, screenBrightness,
+        scale, rotation, imageOffset
+    ) {
+        alignmentPreferences.edit()
+            .putBoolean(referenceKey + "_guides", showGuides)
+            .putBoolean(referenceKey + "_ink_only", inkOnly)
+            .putBoolean(referenceKey + "_grayscale", grayscale)
+            .putFloat(referenceKey + "_opacity", opacity)
+            .putFloat(referenceKey + "_brightness", screenBrightness)
+            .putFloat(referenceKey + "_scale", scale)
+            .putFloat(referenceKey + "_rotation", rotation)
+            .putFloat(referenceKey + "_offset_x", imageOffset.x)
+            .putFloat(referenceKey + "_offset_y", imageOffset.y)
+            .apply()
+    }
+
     LaunchedEffect(camera, isTorchOn) {
         camera?.cameraControl?.enableTorch(isTorchOn)
     }
