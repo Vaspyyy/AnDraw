@@ -40,7 +40,6 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
   publish-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'ci: publish v0.1.0 release'
     needs: assemble
     runs-on: ubuntu-latest
     permissions:
@@ -52,6 +51,9 @@ jobs:
         with:
           name: andraw-debug-apk
           path: dist
+
+      - name: Name installable APK
+        run: mv dist/app-debug.apk dist/AnDraw-v0.1.0.apk
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -68,7 +70,7 @@ jobs:
             - Cozy Material 3 interface
 
             Install: download `AnDraw-v0.1.0.apk` below, open it on Android, and allow installation when prompted.
-          files: dist/app-debug.apk
+          files: dist/AnDraw-v0.1.0.apk
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
