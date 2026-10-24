@@ -602,7 +602,7 @@ private fun TraceScreen(
         }
         if (cameraError != null && hasCameraPermission) {
             Surface(
-                color = Color(0xEFFFFFF8F5),
+                color = Color(0xEFFFF8F5),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.align(Alignment.Center).padding(24.dp)
             ) {
