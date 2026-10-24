@@ -38,3 +38,37 @@ jobs:
         with:
           name: andraw-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+  publish-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'ci: publish v0.1.0 release'
+    needs: assemble
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: andraw-debug-apk
+          path: dist
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          name: AnDraw v0.1.0
+          body: |
+            First installable AnDraw MVP.
+
+            - Import anime fanart from your device
+            - Live rear-camera tracing overlay
+            - Drag, pinch, and rotate alignment, with lock
+            - Ink-only line-art mode, opacity, brightness, guides, grayscale, torch
+            - Cozy Material 3 interface
+
+            Install: download `AnDraw-v0.1.0.apk` below, open it on Android, and allow installation when prompted.
+          files: dist/app-debug.apk
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
