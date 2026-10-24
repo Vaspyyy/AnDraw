@@ -272,8 +272,7 @@ private fun HomeScreen(
                 }
                 Spacer(Modifier.height(15.dp))
                 Text(
-                    "Your reference.
-Your paper. Your pace.",
+                    "Your reference.\nYour paper. Your pace.",
                     fontSize = 24.sp,
                     lineHeight = 29.sp,
                     fontWeight = FontWeight.Bold,
