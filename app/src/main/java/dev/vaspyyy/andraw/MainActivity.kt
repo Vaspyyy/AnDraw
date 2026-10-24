@@ -104,6 +104,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.vaspyyy.andraw.ui.theme.AnDrawTheme
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -136,15 +137,21 @@ private fun AnDrawApp() {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
+            // Copy the selected image into app-private storage. Some providers (including
+            // cloud/photo-picker providers) return URIs that later stop being readable.
+            val copiedUri = runCatching {
+                val referenceDir = File(context.filesDir, "references").apply { mkdirs() }
+                val target = File(referenceDir, "last-reference-image")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("The selected image could not be opened.")
+                Uri.fromFile(target).toString()
+            }.getOrNull()
+            if (copiedUri != null) {
+                savedUri = copiedUri
+                preferences.edit().putString("last_reference_uri", savedUri).apply()
+                screen = AppScreen.TRACE
             }
-            savedUri = uri.toString()
-            preferences.edit().putString("last_reference_uri", savedUri).apply()
-            screen = AppScreen.TRACE
         }
     }
 
