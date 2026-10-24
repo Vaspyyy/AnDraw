@@ -53,25 +53,25 @@ jobs:
           path: dist
 
       - name: Name installable APK
-        run: mv dist/app-debug.apk dist/AnDraw-v0.1.1.apk
+        run: mv dist/app-debug.apk dist/AnDraw-v0.1.2.apk
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.1
-          name: AnDraw v0.1.1
+          tag_name: v0.1.2
+          name: AnDraw v0.1.2
           body: |
-            AnDraw v0.1.1 fixes unreliable image loading by copying selected references into app-private storage.
+            AnDraw v0.1.2 improves image decoding for modern gallery formats and file-backed references.
 
             - Import anime fanart from your device
             - Live rear-camera tracing overlay
             - Drag, pinch, and rotate alignment, with lock
             - Ink-only line-art mode, opacity, brightness, guides, grayscale, torch
             - Cozy Material 3 interface
-            - Fix for images that previously failed to load in tracing studio
+            - Improved decoding for HEIC/HEIF, AVIF, and file-backed references
 
-            Install: download `AnDraw-v0.1.1.apk` below, open it on Android, and allow installation when prompted.
-          files: dist/AnDraw-v0.1.1.apk
+            Install: download `AnDraw-v0.1.2.apk` below, open it on Android, and allow installation when prompted.
+          files: dist/AnDraw-v0.1.2.apk
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
