@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.os.Build
 import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
@@ -968,24 +970,65 @@ private fun decodeReferenceBitmap(
     inkOnly: Boolean
 ): ImageBitmap? {
     val resolver = context.contentResolver
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    resolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it, null, bounds)
-    } ?: return null
 
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-
-    var sampleSize = 1
-    while (bounds.outWidth / sampleSize > 2400 || bounds.outHeight / sampleSize > 2400) {
-        sampleSize *= 2
-    }
-
-    val options = BitmapFactory.Options().apply {
-        inSampleSize = sampleSize
-        inPreferredConfig = Bitmap.Config.ARGB_8888
-    }
-    val source = resolver.openInputStream(uri)?.use {
-        BitmapFactory.decodeStream(it, null, options)
+    // ImageDecoder handles modern phone-gallery formats such as HEIF/HEIC and AVIF.
+    // Keep BitmapFactory as a fallback for older Android versions and legacy formats.
+    val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        runCatching {
+            val imageSource = if (uri.scheme == "file") {
+                ImageDecoder.createSource(File(uri.path!!))
+            } else {
+                ImageDecoder.createSource(resolver, uri)
+            }
+            ImageDecoder.decodeBitmap(imageSource) { decoder, info, _ ->
+                val largestDimension = maxOf(info.size.width, info.size.height)
+                if (largestDimension > 2400) {
+                    val ratio = 2400f / largestDimension
+                    decoder.setTargetSize(
+                        (info.size.width * ratio).toInt().coerceAtLeast(1),
+                        (info.size.height * ratio).toInt().coerceAtLeast(1)
+                    )
+                }
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            }
+        }.getOrNull()
+    } else {
+        null
+    } ?: run {
+        val path = if (uri.scheme == "file") uri.path else null
+        if (path != null) {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(path, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > 2400 || bounds.outHeight / sampleSize > 2400) {
+                sampleSize *= 2
+            }
+            BitmapFactory.decodeFile(
+                path,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+            )
+        } else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sampleSize = 1
+            while (bounds.outWidth / sampleSize > 2400 || bounds.outHeight / sampleSize > 2400) {
+                sampleSize *= 2
+            }
+            resolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(
+                    it, null,
+                    BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                        inPreferredConfig = Bitmap.Config.ARGB_8888
+                    }
+                )
+            }
+        }
     } ?: return null
 
     if (!inkOnly) return source.asImageBitmap()
