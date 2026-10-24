@@ -22,6 +22,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -134,6 +135,7 @@ private fun AnDrawApp() {
     }
     val imageUri = remember(savedUri) { savedUri?.let(Uri::parse) }
     var screen by remember { mutableStateOf(AppScreen.HOME) }
+    var launchPaperMode by remember { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -154,7 +156,13 @@ private fun AnDrawApp() {
                 preferences.edit().putString("last_reference_uri", savedUri).apply()
                 screen = AppScreen.TRACE
             }
+        } else {
+            launchPaperMode = false
         }
+    }
+
+    LaunchedEffect(screen) {
+        if (screen == AppScreen.TRACE) launchPaperMode = false
     }
 
     BackHandler(enabled = screen == AppScreen.TRACE) {
@@ -164,14 +172,24 @@ private fun AnDrawApp() {
     if (screen == AppScreen.TRACE && imageUri != null) {
         TraceScreen(
             imageUri = imageUri,
+            initialPaperMode = launchPaperMode,
             onBack = { screen = AppScreen.HOME },
             onChooseAnother = { imagePicker.launch(arrayOf("image/*")) }
         )
     } else {
         HomeScreen(
             hasSavedReference = imageUri != null,
-            onImport = { imagePicker.launch(arrayOf("image/*")) },
+            onImport = {
+                launchPaperMode = false
+                imagePicker.launch(arrayOf("image/*"))
+            },
+            onPaper = {
+                launchPaperMode = true
+                if (imageUri != null) screen = AppScreen.TRACE
+                else imagePicker.launch(arrayOf("image/*"))
+            },
             onResume = {
+                launchPaperMode = false
                 if (imageUri != null) screen = AppScreen.TRACE
                 else imagePicker.launch(arrayOf("image/*"))
             }
@@ -183,6 +201,7 @@ private fun AnDrawApp() {
 private fun HomeScreen(
     hasSavedReference: Boolean,
     onImport: () -> Unit,
+    onPaper: () -> Unit,
     onResume: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -266,18 +285,46 @@ private fun HomeScreen(
                 .padding(22.dp)
         ) {
             Column {
-                Surface(
-                    color = Color.White.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Text(
-                        "✦  TRACE MODE  ✦",
-                        color = Color(0xFF704B69),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.2.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.72f),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(
+                            "✦  TRACE MODE  ✦",
+                            color = Color(0xFF704B69),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.2.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        color = Color.White.copy(alpha = 0.72f),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onPaper)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Brightness6,
+                                contentDescription = null,
+                                tint = Color(0xFF704B69),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                "PAPER MODE",
+                                color = Color(0xFF704B69),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.0.sp
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(15.dp))
                 Text(
@@ -402,6 +449,7 @@ private fun TipCard(
 @Composable
 private fun TraceScreen(
     imageUri: Uri,
+    initialPaperMode: Boolean,
     onBack: () -> Unit,
     onChooseAnother: () -> Unit
 ) {
@@ -426,16 +474,16 @@ private fun TraceScreen(
     ) { granted ->
         hasCameraPermission = granted
     }
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+    var paperMode by remember { mutableStateOf(initialPaperMode) }
+    LaunchedEffect(hasCameraPermission, paperMode) {
+        if (!paperMode && !hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     var camera by remember { mutableStateOf<Camera?>(null) }
     var cameraError by remember { mutableStateOf<String?>(null) }
     var isTorchOn by remember { mutableStateOf(false) }
-    var isLocked by remember(imageUri) { mutableStateOf(false) }
-    var showControls by remember { mutableStateOf(true) }
-    var paperMode by remember { mutableStateOf(false) }
+    var isLocked by remember(imageUri) { mutableStateOf(initialPaperMode) }
+    var showControls by remember { mutableStateOf(!initialPaperMode) }
     var showGuides by remember(imageUri) {
         mutableStateOf(alignmentPreferences.getBoolean(referenceKey + "_guides", true))
     }
@@ -718,17 +766,6 @@ private fun TraceScreen(
                             color = Color(0xFF766673),
                             fontSize = 11.sp
                         )
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            paperMode = true
-                            showControls = false
-                            isLocked = true
-                            screenBrightness = 1f
-                        },
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-                    ) {
-                        Text("Paper", fontSize = 12.sp)
                     }
                     FilledTonalIconButton(
                         onClick = { isLocked = !isLocked },
